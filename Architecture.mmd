@@ -1,0 +1,42 @@
+graph TD
+    subgraph "Your Spring Boot Application"
+        direction LR
+        subgraph "User's Code"
+            U_Controller["OrderController@RestController"]
+            U_Listener["MessageListener@Component"]
+        end
+
+        subgraph "Spring IoC Container (Application Context)"
+            direction TB
+            subgraph "MiniMQ Starter Beans (Created by Auto-Configuration)"
+                B_Template["MiniMqTemplate Bean"]
+                B_Processor["MiniMqListenerAnnotationBeanPostProcessor Bean"]
+                B_ConnManager["ConnectionManager Bean"]
+                B_Pool["Connection Pool(GenericObjectPool)"]
+                B_Props["MiniMqProperties Bean"]
+            end
+
+            U_Controller -- Injects --> B_Template
+            B_Template -- Uses --> B_ConnManager
+            B_Processor -- Scans --> U_Listener
+            B_ConnManager -- Manages --> B_Pool
+        end
+    end
+
+    subgraph "External Systems"
+        Broker["MiniMQ Broker Server"]
+    end
+
+    B_Pool <-->|Borrows/Returns Sockets| Broker
+    B_Processor -- Creates & Starts --> LC1["Listener Container 1(Background Thread)"]
+    LC1 -- Uses --> B_ConnManager
+    LC1 <-->|CONSUME/ACK| Broker
+
+    style U_Controller fill:#cde4ff
+    style U_Listener fill:#cde4ff
+    style B_Template fill:#d5e8d4
+    style B_Processor fill:#d5e8d4
+    style B_ConnManager fill:#d5e8d4
+    style B_Pool fill:#fff2cc
+    style B_Props fill:#f8cecc
+    style LC1 fill:#e1d5e7

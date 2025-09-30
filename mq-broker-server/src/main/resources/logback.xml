@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="60 seconds">
+
+    <!-- 定义变量，方便后面引用 -->
+    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%15.15thread] %-5level %-40.40logger{39} : %msg%n"/>
+    <property name="LOG_FILE_PATH" value="${user.home}/logs/minimq"/>
+    <!-- 日志文件存放目录 -->
+
+    <!-- ===================================================================== -->
+    <!-- Appenders: 定义日志输出的目的地 (控制台、文件等)                      -->
+    <!-- ===================================================================== -->
+
+    <!-- 1. 控制台输出 Appender (ConsoleAppender) -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- 2. 文件滚动输出 Appender (RollingFileAppender) -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <!-- 当前日志文件的路径和名称 -->
+        <file>${LOG_FILE_PATH}/broker.log</file>
+
+        <!-- 滚动策略：按天和大小滚动 -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- 归档日志文件的命名格式 -->
+            <fileNamePattern>${LOG_FILE_PATH}/broker-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <!-- 保留最近30天的日志文件 -->
+            <maxHistory>30</maxHistory>
+            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+                <!-- 当日志文件超过10MB时，在当天也会进行分割 -->
+                <maxFileSize>10MB</maxFileSize>
+            </timeBasedFileNamingAndTriggeringPolicy>
+        </rollingPolicy>
+
+        <!-- 日志内容的格式化 -->
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- 3. 异步日志 Appender (AsyncAppender) (可选，提升性能) -->
+    <!-- 它包装了另一个Appender (FILE)，使其变为异步 -->
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <!-- 队列深度，当队列满时，后续日志会被丢弃 (默认为丢弃 TRACE, DEBUG, INFO) -->
+        <queueSize>512</queueSize>
+        <!-- 从不丢弃 INFO 级别及以上的日志 -->
+        <discardingThreshold>0</discardingThreshold>
+        <!-- 引用我们之前定义的 FILE appender -->
+        <appender-ref ref="FILE"/>
+    </appender>
+
+    <!-- ===================================================================== -->
+    <!-- Loggers: 配置不同包的日志级别                                        -->
+    <!-- ===================================================================== -->
+
+    <!--
+    <logger name="org.springframework" level="WARN"/> -->
+    <!--
+    <logger name="org.hibernate" level="WARN"/> -->
+
+    <!-- ===================================================================== -->
+    <!-- Root Logger: 全局默认日志配置                                        -->
+    <!-- ===================================================================== -->
+
+    <!-- 根 Logger，所有 logger 的最终上级 -->
+    <root level="INFO">
+        <!-- 全局日志级别，可以设置为 TRACE, DEBUG, INFO, WARN, ERROR -->
+        <appender-ref ref="CONSOLE"/>      <!-- 将日志输出到控制台 -->
+        <appender-ref ref="ASYNC_FILE"/>  <!-- 将日志异步输出到文件 -->
+        <!-- 如果不想用异步，可以直接引用 FILE: <appender-ref ref="FILE"/> -->
+    </root>
+
+</configuration>
