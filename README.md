@@ -97,8 +97,8 @@ private MiniMqTemplate MiniMqTemplate;
 @GetMapping("/order")
 public String createOrder() {
     OrderDto order = new OrderDto("order-123", "Laptop", 1);
-    MiniMqTemplate.send("ORDER_TOPIC", order);
-    return "Order sent!";
+    String messageId = MiniMqTemplate.send("ORDER_TOPIC", order);
+    return "Order sent! && messageId: " + messageId;
 }
 
 }
@@ -110,13 +110,18 @@ Use the `@MiniMqListener` annotation on any method in a Spring component.
 ```java 
 @Component public class OrderConsumer {
 
-@MiniMqListener(topic = "ORDER_TOPIC")
-public void handleOrder(OrderDto order) {
-    // The 'order' object is automatically deserialized from JSON!
-    System.out.println("Received new order: " + order.getOrderId());
-}
+    @MiniMqListener(topic = "ORDER_TOPIC")
+    public void handleOrder(OrderDto order) {
+        // The 'order' object is automatically deserialized from JSON!
+        System.out.println("Received new order: " + order.getOrderId());
+    }
 
+    @MiniMqListener(topic = "ORDER_TOPIC")
+    public void handleOrderWithId(OrderDto order, @Header(MiniMqHeaders.MESSAGE_ID) String messageId) {
+        System.out.println("Broker Message ID from @Header: " + messageId);
+    }
 } 
+
 ``` 
 See the `examples/example-app` module for a complete, runnable example.
 

@@ -15,23 +15,24 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
-        <slf4j.version>1.7.36</slf4j.version>
+        <slf4j.version>2.0.12</slf4j.version>
         <logback.version>1.5.13</logback.version>
         <lombok.version>1.18.24</lombok.version>
         <junit.version>5.8.2</junit.version>
     </properties>
 
     <dependencies>
+        <!-- SLF4J API -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>${slf4j.version}</version>
         </dependency>
+        <!-- Logback Implementation -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
             <version>${logback.version}</version>
-            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>

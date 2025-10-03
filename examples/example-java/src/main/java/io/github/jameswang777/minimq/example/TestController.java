@@ -22,7 +22,7 @@ public class TestController {
         OrderDto order = new OrderDto(orderId, product, 1);
 
         System.out.println("--- Sending message from Controller ---");
-        String messageId = myMqTemplate.send("ORDER_TOPIC", order);
+        String messageId = miniMqTemplate.send("ORDER_TOPIC", order);
 
         String response = String.format("Message sent for order %s. Broker assigned messageId: %s", orderId, messageId);
         System.out.println(response);

@@ -24,15 +24,16 @@
         <file>${LOG_FILE_PATH}/broker.log</file>
 
         <!-- 滚动策略：按天和大小滚动 -->
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- 归档日志文件的命名格式 -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <!-- 日志文件路径和文件名模式 -->
+            <!-- %d{yyyy-MM-dd} 是日期，%i 是当天的文件索引，从0开始 -->
             <fileNamePattern>${LOG_FILE_PATH}/broker-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <!-- 保留最近30天的日志文件 -->
+            <!-- 当单个日志文件超过10MB时，在当天也会进行分割 -->
+            <maxFileSize>10MB</maxFileSize>
+            <!-- 可选：保留日志文件的最大天数 -->
             <maxHistory>30</maxHistory>
-            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
-                <!-- 当日志文件超过10MB时，在当天也会进行分割 -->
-                <maxFileSize>10MB</maxFileSize>
-            </timeBasedFileNamingAndTriggeringPolicy>
+            <!-- 可选：所有归档日志文件的总大小上限 -->
+            <totalSizeCap>20GB</totalSizeCap>
         </rollingPolicy>
 
         <!-- 日志内容的格式化 -->

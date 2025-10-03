@@ -8,6 +8,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.net.Socket;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -88,29 +89,62 @@ public class MiniMqListenerContainer {
     }
 
     private void processMessage(String rawMessage, PrintWriter out) {
-        String[] parts = rawMessage.split(":::", 3);
-        if (parts.length != 3) {
+        MessageWrapper message = MessageWrapper.fromString(rawMessage);
+        if (message == null) {
             log.warn("Received malformed message: {}", rawMessage);
             return;
         }
-        String messageId = parts[0];
-        String messageContent = parts[2];
-
         try {
-            // Deserialize message content to the type expected by the listener method
-            Class<?> parameterType = method.getParameterTypes()[0];
-            Object payload = objectMapper.readValue(messageContent, parameterType);
+            // 1. 准备参数列表
+            Object[] args = prepareArguments(message);
 
-            // Invoke the user's listener method
-            method.invoke(bean, payload);
+            // 2. 使用准备好的参数调用用户方法
+            method.invoke(bean, args);
 
-            // Send ACK
-            out.printf("ACK:%s%n", messageId);
-            log.trace("Successfully processed and ACKed message [{}]", messageId);
+            // 3. 发送 ACK
+            out.printf("ACK:%s%n", message.getId());
+            log.trace("Successfully processed and ACKed message [{}]", message.getId());
         } catch (Exception e) {
-            log.error("Error processing message [{}]. It will be re-queued after timeout.", messageId, e);
-            // We don't send ACK, so the message will be re-delivered after timeout
+            log.error("Error processing message [{}]. It will be re-queued after timeout.", message.getId(), e);
+            // No ACK is sent on failure
         }
+    }
+
+    private Object[] prepareArguments(MessageWrapper message) throws Exception {
+        Parameter[] parameters = method.getParameters(); // 使用 getParameters() 更现代
+        Object[] args = new Object[parameters.length];
+
+        for (int i = 0; i < parameters.length; i++) {
+            Parameter parameter = parameters[i];
+            Header headerAnnotation = parameter.getAnnotation(Header.class);
+
+            if (headerAnnotation != null) {
+                // --- 这是一个带 @Header 注解的参数 ---
+                String headerName = headerAnnotation.value();
+                if (MiniMqHeaders.MESSAGE_ID.equals(headerName)) {
+                    if (parameter.getType().isAssignableFrom(String.class)) {
+                        args[i] = message.getId();
+                    } else {
+                        throw new IllegalArgumentException("Parameter annotated with @Header(\"" + MiniMqHeaders.MESSAGE_ID + "\") must be of type String.");
+                    }
+                } else {
+                    // 未来可以扩展支持其他 Header
+                    log.warn("Unsupported header '{}' on parameter in method {}", headerName, method.getName());
+                    args[i] = null;
+                }
+            } else {
+                // --- 这是一个没有注解的参数，我们假定它是消息体 (payload) ---
+                // (为了健壮性，我们应该确保只有一个 payload 参数，这在 BeanPostProcessor 中验证)
+                try {
+                    args[i] = objectMapper.readValue(message.getContent(), parameter.getType());
+                } catch (Exception e) {
+                    log.error("Failed to deserialize payload for method {}", method.getName(), e);
+                    throw e; // 重新抛出，让上层捕获并处理
+                }
+            }
+        }
+
+        return args;
     }
 
     private void sleepBeforeReconnect() {

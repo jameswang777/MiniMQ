@@ -10,6 +10,7 @@ import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.util.ReflectionUtils;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -46,14 +47,43 @@ public class MiniMqListenerAnnotationBeanPostProcessor implements BeanPostProces
     }
 
     private void processListenerMethod(Object bean, Method method) {
-        // Basic validation
-        if (method.getParameterCount() != 1) {
-            throw new IllegalArgumentException("Method " + method.getName() + " annotated with @MyMqListener must have exactly one parameter.");
-        }
+        validateListenerMethod(method);
 
         MiniMqListenerContainer container = new MiniMqListenerContainer(connectionManager, objectMapper, bean, method);
         containers.add(container);
         container.start();
+    }
+
+    private void validateListenerMethod(Method method)  {
+        Parameter[] parameters = method.getParameters();
+        if (parameters.length == 0) {
+            throw new IllegalArgumentException("Method " + method.getName() + " annotated with @MiniMqListener must have at least one parameter for the payload.");
+        }
+
+        int payloadCount = 0;
+        for (Parameter parameter : parameters) {
+            Header headerAnnotation = parameter.getAnnotation(Header.class);
+            if (headerAnnotation == null) {
+                // This is a payload parameter
+                payloadCount++;
+            } else {
+                // This is a header parameter, validate it
+                if (!MiniMqHeaders.MESSAGE_ID.equals(headerAnnotation.value())) {
+                    throw new IllegalArgumentException("Unsupported header value '" + headerAnnotation.value() + "' on method " + method.getName());
+                }
+                if (!String.class.equals(parameter.getType())) {
+                    throw new IllegalArgumentException("Parameter annotated with @Header(\"" + MiniMqHeaders.MESSAGE_ID + "\") must be of type String in method " + method.getName());
+                }
+            }
+        }
+
+        if (payloadCount == 0) {
+            throw new IllegalArgumentException("Method " + method.getName() + " must have exactly one parameter without @Header annotation for the message payload.");
+        }
+
+        if (payloadCount > 1) {
+            throw new IllegalArgumentException("Method " + method.getName() + " must have only one parameter without @Header annotation for the message payload. Found: " + payloadCount);
+        }
     }
 
     @PreDestroy
