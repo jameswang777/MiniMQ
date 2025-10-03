@@ -53,7 +53,9 @@ public class ClientHandler implements Runnable {
                 switch (command) {
                     case PRODUCE_COMMAND:
                         if (parts.length == 3) {
-                            broker.produce(new Message(parts[1], parts[2]));
+                            Message message = new Message(parts[1], parts[2]);
+                            broker.produce(message);
+                            out.println(message.getId());
                         } else {
                             log.warn("Malformed PRODUCE command from [{}]: {}", clientAddress, inputLine);
                         }
