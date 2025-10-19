@@ -2,6 +2,7 @@ package io.github.jameswang777.minimq.consumer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.jameswang777.minimq.connection.ConnectionManager;
+import io.github.jameswang777.minimq.model.Message;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.BufferedReader;
@@ -21,29 +22,29 @@ public class MiniMqListenerContainer {
     private final ObjectMapper objectMapper;
     private final Object bean;
     private final Method method;
-    private final MiniMqListener listenerAnnotation;
+    private final String topic;
     private final ExecutorService executorService;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
-    public MiniMqListenerContainer(ConnectionManager connectionManager, ObjectMapper objectMapper, Object bean, Method method) {
+    public MiniMqListenerContainer(ConnectionManager connectionManager, ObjectMapper objectMapper, Object bean, Method method, String topic) {
         this.connectionManager = connectionManager;
         this.objectMapper = objectMapper;
         this.bean = bean;
         this.method = method;
-        this.listenerAnnotation = method.getAnnotation(MiniMqListener.class);
-        this.executorService = Executors.newSingleThreadExecutor(r -> new Thread(r, "MyMqListener-" + listenerAnnotation.topic()));
+        this.topic = topic;
+        this.executorService = Executors.newSingleThreadExecutor(r -> new Thread(r, "MiniMqListener-" + this.topic));
     }
 
     public void start() {
         if (running.compareAndSet(false, true)) {
-            log.info("Starting listener for topic [{}] on method [{}]", listenerAnnotation.topic(), method.getName());
+            log.info("Starting listener for topic [{}] on method [{}]", this.topic, method.getName());
             executorService.submit(this::runListenerLoop);
         }
     }
 
     public void stop() {
         if (running.compareAndSet(true, false)) {
-            log.info("Stopping listener for topic [{}]", listenerAnnotation.topic());
+            log.info("Stopping listener for topic [{}]", this.topic);
             executorService.shutdownNow(); // Interrupt the listening thread
         }
     }
@@ -59,7 +60,7 @@ public class MiniMqListenerContainer {
                 // Main loop for this connection
                 while (running.get() && socket.isConnected()) {
                     // 1. Send CONSUME request
-                    out.printf("CONSUME:%s%n", listenerAnnotation.topic());
+                    out.printf("CONSUME:%s%n", this.topic);
 
                     // 2. Wait for response
                     String response = in.readLine();
@@ -76,10 +77,10 @@ public class MiniMqListenerContainer {
                     processMessage(response, out);
                 }
             } catch (InterruptedException e) {
-                log.info("Listener for topic [{}] was interrupted. Shutting down.", listenerAnnotation.topic());
+                log.info("Listener for topic [{}] was interrupted. Shutting down.", this.topic);
                 Thread.currentThread().interrupt();
             } catch (Exception e) {
-                log.error("Error in listener loop for topic [{}]. Reconnecting in 5 seconds...", listenerAnnotation.topic(), e);
+                log.error("Error in listener loop for topic [{}]. Reconnecting in 5 seconds...", this.topic, e);
                 sleepBeforeReconnect();
             } finally {
                 // Ensure connection is always returned or invalidated
@@ -89,7 +90,7 @@ public class MiniMqListenerContainer {
     }
 
     private void processMessage(String rawMessage, PrintWriter out) {
-        MessageWrapper message = MessageWrapper.fromString(rawMessage);
+        Message message = Message.fromString(rawMessage);
         if (message == null) {
             log.warn("Received malformed message: {}", rawMessage);
             return;
@@ -110,7 +111,7 @@ public class MiniMqListenerContainer {
         }
     }
 
-    private Object[] prepareArguments(MessageWrapper message) throws Exception {
+    private Object[] prepareArguments(Message message) throws Exception {
         Parameter[] parameters = method.getParameters(); // 使用 getParameters() 更现代
         Object[] args = new Object[parameters.length];
 
@@ -119,18 +120,25 @@ public class MiniMqListenerContainer {
             Header headerAnnotation = parameter.getAnnotation(Header.class);
 
             if (headerAnnotation != null) {
-                // --- 这是一个带 @Header 注解的参数 ---
+                // --- This is a header parameter, use a switch for clarity ---
                 String headerName = headerAnnotation.value();
-                if (MiniMqHeaders.MESSAGE_ID.equals(headerName)) {
-                    if (parameter.getType().isAssignableFrom(String.class)) {
+
+                // The parameter type was already validated to be String in the PostProcessor
+                switch (headerName) {
+                    case MiniMqHeaders.MESSAGE_ID:
                         args[i] = message.getId();
-                    } else {
-                        throw new IllegalArgumentException("Parameter annotated with @Header(\"" + MiniMqHeaders.MESSAGE_ID + "\") must be of type String.");
-                    }
-                } else {
-                    // 未来可以扩展支持其他 Header
-                    log.warn("Unsupported header '{}' on parameter in method {}", headerName, method.getName());
-                    args[i] = null;
+                        break;
+                    case MiniMqHeaders.REPLY_TO:
+                        args[i] = message.getReplyTo(); // Will be null if not present
+                        break;
+                    case MiniMqHeaders.CORRELATION_ID:
+                        args[i] = message.getCorrelationId(); // Will be null if not present
+                        break;
+                    default:
+                        // This case should technically not be reached due to validation
+                        log.warn("Unsupported header '{}' requested by method {}. Passing null.", headerName, method.getName());
+                        args[i] = null;
+                        break;
                 }
             } else {
                 // --- 这是一个没有注解的参数，我们假定它是消息体 (payload) ---

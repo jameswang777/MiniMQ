@@ -6,7 +6,7 @@
 
     <groupId>io.github.jameswang777.minimq</groupId>
     <artifactId>mq-broker-server</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>1.1.0</version>
 
     <name>MiniMQ Broker Server</name>
     <description>The core, standalone server for the MiniMQ message queue system.</description>
@@ -22,6 +22,12 @@
     </properties>
 
     <dependencies>
+        <!-- MiniMQ Common Dependency -->
+        <dependency>
+            <groupId>io.github.jameswang777.minimq</groupId>
+            <artifactId>minimq-common</artifactId>
+            <version>1.1.0</version>
+        </dependency>
         <!-- SLF4J API -->
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -62,9 +68,12 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
                 <version>3.2.0</version>
-                <configuration>
-                    <skip>true</skip>
-                </configuration>
+                <executions>
+                    <execution>
+                        <id>default-jar</id>
+                        <phase>none</phase>
+                    </execution>
+                </executions>
             </plugin>
 
             <!-- Plugin to create a single executable "uber-jar" -->

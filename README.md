@@ -1,7 +1,3 @@
----
-title: MiniMQ
----
-
 # MiniMQ
 
 Java 17+ | Python 3.7+ | Build with Maven & Pip | MIT License

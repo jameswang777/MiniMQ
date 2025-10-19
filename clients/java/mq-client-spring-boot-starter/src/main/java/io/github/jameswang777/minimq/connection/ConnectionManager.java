@@ -8,6 +8,7 @@ import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 
 import java.net.Socket;
+import java.net.URI;
 import java.time.Duration;
 
 @Slf4j
@@ -17,6 +18,36 @@ public class ConnectionManager {
 
     public ConnectionManager(MiniMqProperties properties) {
         log.info("Initializing MiniMQ ConnectionManager...");
+        // --- START: Robust Host and Port Parsing Logic ---
+        String finalHost;
+        int finalPort;
+
+        try {
+            // 优先尝试将 'host' 属性作为一个完整的 URI 来解析
+            URI brokerUri = new URI(properties.getHost());
+            finalHost = brokerUri.getHost();
+            finalPort = brokerUri.getPort();
+
+            // 验证从 URI 中是否成功提取了 host 和 port
+            if (finalHost == null || finalPort == -1) {
+                throw new IllegalArgumentException("Host or Port not found in the provided URI: " + properties.getHost());
+            }
+            log.info("Successfully parsed broker URI. Host='{}', Port='{}'", finalHost, finalPort);
+
+        } catch (Exception e) {
+            log.warn("Could not parse 'host' property as a URI. Falling back to using separate 'host' and 'port' properties. Reason: {}", e.getMessage());
+            // 如果解析 URI 失败，则回退到使用独立的 host 和 port 属性
+            finalHost = properties.getHost();
+            try {
+                finalPort = Integer.parseInt(properties.getPort());
+            } catch (NumberFormatException nfe) {
+                log.error("The configured 'port' property is not a valid number: '{}'", properties.getPort());
+                // 这是一个致命的配置错误，抛出异常以阻止应用启动
+                throw new IllegalArgumentException("Invalid port number configured: " + properties.getPort(), nfe);
+            }
+        }
+        // --- END: Robust Host and Port Parsing Logic ---
+
         MiniMqProperties.Pool poolProps = properties.getPool();
 
         GenericObjectPoolConfig<Socket> poolConfig = new GenericObjectPoolConfig<>();
@@ -29,8 +60,8 @@ public class ConnectionManager {
         poolConfig.setTestWhileIdle(true); // Periodically check idle connections
 
         PooledSocketFactory factory = new PooledSocketFactory(
-                properties.getHost(),
-                properties.getPort(),
+                finalHost,
+                finalPort,
                 properties.getConnectionTimeout()
         );
 

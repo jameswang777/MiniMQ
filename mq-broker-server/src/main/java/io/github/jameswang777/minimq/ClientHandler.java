@@ -42,38 +42,40 @@ public class ClientHandler implements Runnable {
             while ((inputLine = in.readLine()) != null) {
                 log.trace("Received raw command from [{}]: {}", clientAddress, inputLine);
 
-                String[] parts = inputLine.split(":", 3);
+                // 协议改为 COMMAND:<payload>
+                String[] parts = inputLine.split(":", 2);
                 if (parts.length < 2) {
                     log.warn("Received malformed command from [{}]: {}", clientAddress, inputLine);
                     continue;
                 }
 
                 String command = parts[0];
+                String payload = parts[1];
 
                 switch (command) {
                     case PRODUCE_COMMAND:
-                        if (parts.length == 3) {
-                            Message message = new Message(parts[1], parts[2]);
-                            broker.produce(message);
-                            out.println(message.getId());
+                        // PRODUCE 命令的 payload 就是 Message.toString() 的结果
+                        Message messageToProduce = Message.fromString(payload);
+                        if (messageToProduce != null) {
+                            broker.produce(messageToProduce);
+                            // 对于普通PRODUCE，仍然返回ID作为确认
+                            out.println(messageToProduce.getId());
                         } else {
-                            log.warn("Malformed PRODUCE command from [{}]: {}", clientAddress, inputLine);
+                            log.warn("Malformed PRODUCE payload from [{}]: {}", clientAddress, payload);
                         }
                         break;
 
                     case CONSUME_COMMAND:
-                        String topic = parts[1];
-                        Message message = broker.consume(topic);
-                        if (message != null) {
-                            out.println(message);
+                        Message consumedMessage = broker.consume(payload); // topic
+                        if (consumedMessage != null) {
+                            out.println(consumedMessage); // 返回完整的消息字符串
                         } else {
                             out.println(NO_MSG_RESPONSE);
                         }
                         break;
 
                     case ACK_COMMAND:
-                        String messageId = parts[1];
-                        broker.acknowledge(messageId);
+                        broker.acknowledge(payload); // messageId
                         break;
 
                     default:

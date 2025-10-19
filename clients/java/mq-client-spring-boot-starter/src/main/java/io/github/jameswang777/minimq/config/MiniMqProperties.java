@@ -20,7 +20,7 @@ public class MiniMqProperties {
     /**
      * Broker server port.
      */
-    private int port = 5677;
+    private String port = "5677";
 
     /**
      * Connection timeout in milliseconds.
@@ -62,6 +62,8 @@ public class MiniMqProperties {
          * Listeners will only be activated if this is true.
          */
         private boolean enabled = true;
+
+        private String topic;
     }
 
     @Data

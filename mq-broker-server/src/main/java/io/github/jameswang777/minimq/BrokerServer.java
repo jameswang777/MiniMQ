@@ -3,15 +3,24 @@ package io.github.jameswang777.minimq;
 import io.github.jameswang777.minimq.model.Message;
 import lombok.extern.slf4j.Slf4j;
 
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLServerSocketFactory;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.security.KeyStore;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 public class BrokerServer {
-    private static final int PORT = 5677;
+    // --- 1. 修改端口定义 ---
+    private static final int PLAIN_PORT = 5677; // 非加密端口
+    private static final int TLS_PORT = 5678;   // 加密端口
+
     private static final String LOG_FILE_PATH = "minimq-broker.log";
     private static final long ACK_TIMEOUT_MS = 30000; // 30秒超时
 
@@ -21,6 +30,9 @@ public class BrokerServer {
     private final ConcurrentHashMap<String, Message> unackedMessages = new ConcurrentHashMap<>();
     // Scheduled executor for background tasks like ACK timeout scanning
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+
+    // --- 2. 新增线程池用于管理两个监听器 ---
+    private final ExecutorService listenerExecutor = Executors.newFixedThreadPool(2);
 
     public BrokerServer() {
         log.info("Initializing MiniMQ Broker Server...");
@@ -33,21 +45,71 @@ public class BrokerServer {
     public static void main(String[] args) {
         try {
             new BrokerServer().start();
-        } catch (IOException e) {
-            log.error("Failed to start Broker Server due to an I/O error.", e);
+        } catch (Exception e) {
+            log.error("Failed to start Broker Server.", e);
         }
     }
 
+    // --- 3. 重写 start() 方法以支持双端口 ---
     public void start() throws IOException {
-        try (ServerSocket serverSocket = new ServerSocket(PORT)) {
-            log.info("Broker Server is running and listening on port {}", PORT);
-            while (true) {
+        // 启动非加密端口监听器
+        try {
+            ServerSocket plainSocket = new ServerSocket(PLAIN_PORT);
+            listenerExecutor.submit(() -> startListenerLoop(plainSocket, "Plain TCP"));
+            log.info("Broker Server is running (Plain TCP) on port {}", PLAIN_PORT);
+        } catch (IOException e) {
+            log.error("Could not start plain listener on port {}", PLAIN_PORT, e);
+            throw e; // 如果非加密端口启动失败，则服务器启动失败
+        }
+
+        // 检查环境变量，决定是否启动加密端口监听器
+        String keyStorePath = System.getenv("KEYSTORE_PATH");
+        String keyStorePassword = System.getenv("KEYSTORE_PASSWORD");
+
+        if (keyStorePath != null && !keyStorePath.isEmpty() && keyStorePassword != null) {
+            try {
+                SSLContext sslContext = createSslContext(keyStorePath, keyStorePassword);
+                SSLServerSocketFactory factory = sslContext.getServerSocketFactory();
+                ServerSocket tlsSocket = factory.createServerSocket(TLS_PORT);
+                listenerExecutor.submit(() -> startListenerLoop(tlsSocket, "TLS Encrypted"));
+                log.info("Broker Server is running (TLS Encrypted) on port {}", TLS_PORT);
+            } catch (Exception e) {
+                // 加密端口启动失败只记录错误，不影响非加密服务的运行
+                log.error("Could not start TLS listener on port {}. The server will continue to run without encryption.", TLS_PORT, e);
+            }
+        } else {
+            log.warn("KEYSTORE_PATH or KEYSTORE_PASSWORD not set. TLS listener will not be started.");
+        }
+    }
+
+    /**
+     * 4. 统一的监听循环，可以接受普通和SSL的ServerSocket
+     */
+    private void startListenerLoop(ServerSocket serverSocket, String type) {
+        while (true) {
+            try {
                 Socket clientSocket = serverSocket.accept();
-                log.info("Accepted new client connection from {}", clientSocket.getRemoteSocketAddress());
-                // 为每个客户端连接创建一个新线程处理
+                log.info("Accepted new {} client connection from {}", type, clientSocket.getRemoteSocketAddress());
                 new Thread(new ClientHandler(clientSocket, this)).start();
+            } catch (IOException e) {
+                log.error("Error accepting new {} connection", type, e);
             }
         }
+    }
+
+    /**
+     * 5. 创建并初始化SSLContext的辅助方法
+     */
+    private SSLContext createSslContext(String keyStorePath, String keyStorePassword) throws Exception {
+        KeyStore keyStore = KeyStore.getInstance("PKCS12");
+        keyStore.load(Files.newInputStream(Paths.get(keyStorePath)), keyStorePassword.toCharArray());
+
+        KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        keyManagerFactory.init(keyStore, keyStorePassword.toCharArray());
+
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(keyManagerFactory.getKeyManagers(), null, null);
+        return sslContext;
     }
 
     // 核心方法：生产消息

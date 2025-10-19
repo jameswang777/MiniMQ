@@ -32,11 +32,9 @@ public class MiniMqAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public MiniMqListenerAnnotationBeanPostProcessor miniMqListenerAnnotationBeanPostProcessor(
-            ConnectionManager connectionManager,
-            ObjectMapper objectMapper,
-            MiniMqProperties properties) {
-        return new MiniMqListenerAnnotationBeanPostProcessor(connectionManager, objectMapper, properties);
+    public static MiniMqListenerAnnotationBeanPostProcessor miniMqListenerAnnotationBeanPostProcessor() {
+        // No more parameters! Spring can now create this bean very early.
+        return new MiniMqListenerAnnotationBeanPostProcessor();
     }
 
     /**

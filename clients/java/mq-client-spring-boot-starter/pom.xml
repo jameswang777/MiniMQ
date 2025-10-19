@@ -6,7 +6,7 @@
 
     <groupId>io.github.jameswang777.minimq</groupId>
     <artifactId>mq-client-spring-boot-starter</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>1.1.0</version>
 
     <name>mq-client-spring-boot-starter</name>
     <description>A Spring Boot starter for the MiniMQ client, with producer and consumer support.</description>
@@ -21,6 +21,11 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>io.github.jameswang777.minimq</groupId>
+                <artifactId>minimq-common</artifactId>
+                <version>1.1.0</version>
+            </dependency>
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
@@ -76,6 +81,10 @@
         <dependency>
             <groupId>jakarta.annotation</groupId>
             <artifactId>jakarta.annotation-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.jameswang777.minimq</groupId>
+            <artifactId>minimq-common</artifactId>
         </dependency>
     </dependencies>
 
