@@ -9,6 +9,30 @@ WORKDIR /app
 # 这样做是为了让 Maven 能够解析父 POM 和模块间的依赖
 COPY . .
 
+# --- NEW AND IMPORTANT PART ---
+# Create the settings.xml file dynamically from environment variables.
+# This command creates the .m2 directory and then writes the XML content into settings.xml.
+# The shell will automatically substitute ${...} with the values of the environment variables.
+RUN mkdir -p /root/.m2 && \
+    cat <<EOF > /root/.m2/settings.xml
+<settings>
+  <servers>
+    <server>
+      <id>internal-mirror</id>
+      <username>${MAVEN_REPO_USERNAME}</username>
+      <password>${MAVEN_REPO_PASSWORD}</password>
+    </server>
+  </servers>
+  <mirrors>
+    <mirror>
+      <id>internal-mirror</id>
+      <url>${MAVEN_MIRROR_URL}</url>
+      <mirrorOf>*</mirrorOf>
+    </mirror>
+  </mirrors>
+</settings>
+EOF
+
 # 运行 Maven 命令来构建 "uber-jar"
 # -pl mq-broker-server 指定只构建这个模块
 # -am (also-make) 会同时构建它依赖的模块 (即 common 模块)
@@ -27,8 +51,7 @@ WORKDIR /app
 # 注意文件名要和你 pom.xml 中 assembly 插件生成的一致
 COPY --from=builder /app/mq-broker-server/target/mq-broker-server-1.1.0-jar-with-dependencies.jar ./app.jar
 
-# 暴露 Broker Server 可能需要监听的端口 (请根据你的代码修改)
-# 假设你的服务监听 8080 端口
+# 暴露 Broker Server 可能需要监听的端口
 EXPOSE 5677
 
 # 容器启动时运行的命令
