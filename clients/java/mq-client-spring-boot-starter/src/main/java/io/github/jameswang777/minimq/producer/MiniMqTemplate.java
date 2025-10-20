@@ -28,24 +28,35 @@ public class MiniMqTemplate {
     }
 
     /**
-     * Sends a message to the specified topic.
-     * The message object will be serialized to JSON.
-     *
-     * @param topic   The destination topic.
-     * @param payload The message object.
-     * @return The unique message ID assigned by the broker.
+     * 公共方法 #1: 发送一个简单的异步消息。
+     * 它负责将业务对象转换为 Message，然后委托给核心发送方法。
      */
     public String send(String topic, Object payload) {
-        String messageContent;
         try {
-            // 1. 将业务对象 payload 序列化为 JSON 字符串
-            messageContent = objectMapper.writeValueAsString(payload);
-        } catch (JsonProcessingException e) {
-            log.error("Failed to serialize message object for topic '{}'", topic, e);
-            throw new RuntimeException("Message serialization failed", e);
+            String content = objectMapper.writeValueAsString(payload);
+            Message message = new Message(topic, content);
+            return sendProduceCommand(message);
+        } catch (Exception e) {
+            log.error("Failed to serialize payload for topic {}", topic, e);
+            throw new RuntimeException("Payload serialization failed", e);
         }
+    }
 
-        // Implement retry logic
+    /**
+     * 公共方法 #2: 发送一个预先构建好的 Message 对象。
+     * 它直接将 Message 委托给核心发送方法。
+     */
+    public String send(Message message) {
+        return sendProduceCommand(message);
+    }
+
+    /**
+     * [私有核心方法] 封装了所有 PRODUCE 命令的发送、重试和连接管理逻辑。
+     *
+     * @param message 要发送的完整 Message 对象。
+     * @return Broker 返回的 Message ID。
+     */
+    private String sendProduceCommand(Message message) {
         int attempts = 0;
         Exception lastException = null;
 
@@ -53,30 +64,32 @@ public class MiniMqTemplate {
             attempts++;
             Socket socket = null;
             try {
-                // 2. 使用 Message 构造器创建异步消息对象
-                Message message = new Message(topic, messageContent);
-                // 3. 使用 Message.toString() 方法进行协议序列化
                 String serializedMessage = message.toString();
-                String command = "PRODUCE:" + serializedMessage + "\n"; // 遵循 v1.1 协议
-                log.debug("Sending command: {}", command);
+                String command = "PRODUCE:" + serializedMessage + "\n";
+                log.debug("Attempt {} to send command: {}", attempts, command);
 
                 socket = connectionManager.borrowConnection();
-                // 获取输入和输出流
                 PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
                 BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                // 发送 PRODUCE 命令
+
                 out.print(command);
-                out.flush(); // Ensure data is sent immediately
-                // 等待并读取 Broker 的响应 (即 Message ID)
-                String messageId = in.readLine();
-                // 归还连接并返回 ID
-                connectionManager.returnConnection(socket);
-                log.debug("Successfully sent message to topic '{}', received messageId [{}].", topic, messageId);
-                return messageId;
+                out.flush();
+
+                String response = in.readLine();
+                if (response != null && response.startsWith("OK:")) {
+                    connectionManager.returnConnection(socket);
+                    String messageId = response.substring(3);
+                    log.debug("Successfully sent message to topic '{}', received messageId [{}].", message.getTopic(), messageId);
+                    return messageId;
+                } else {
+                    // 如果响应格式不正确，也视为一次失败
+                    throw new IllegalStateException("Received unexpected response from broker: " + response);
+                }
+
             } catch (Exception e) {
-                log.warn("Failed to send message to topic '{}' on attempt {}. Retrying...", topic, attempts, e);
+                log.warn("Failed to send message to topic '{}' on attempt {}.", message.getTopic(), attempts, e);
                 lastException = e;
-                connectionManager.invalidateConnection(socket); // 销毁坏掉的连接
+                connectionManager.invalidateConnection(socket);
                 if (attempts < producerProps.getRetries()) {
                     try {
                         Thread.sleep(producerProps.getRetryDelayMs());
@@ -87,8 +100,7 @@ public class MiniMqTemplate {
                 }
             }
         }
-        // 如果所有重试都失败了，抛出最终的异常
-        log.error("Failed to send message to topic '{}' after {} attempts.", topic, producerProps.getRetries());
+        log.error("Failed to send message to topic '{}' after {} attempts.", message.getTopic(), producerProps.getRetries());
         throw new RuntimeException("Failed to send message after all retries", lastException);
     }
 

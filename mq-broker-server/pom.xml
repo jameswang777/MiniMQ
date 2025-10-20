@@ -16,7 +16,7 @@
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <slf4j.version>2.0.12</slf4j.version>
-        <logback.version>1.5.13</logback.version>
+        <logback.version>1.5.19</logback.version>
         <lombok.version>1.18.24</lombok.version>
         <junit.version>5.8.2</junit.version>
     </properties>

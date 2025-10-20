@@ -13,4 +13,12 @@ public @interface Header {
      * The name of the header to bind to this parameter.
      */
     String value();
+
+    /**
+     * Whether the header is required.
+     * <p>Default is {@code true}, leading to an exception being thrown
+     * if the header is missing. Switch this to {@code false} if you prefer
+     * a {@code null} value in case of a missing header.
+     */
+    boolean required() default true;
 }
