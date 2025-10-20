@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- 1. 项目基本信息 -->
+    <!-- 子模块将会继承这些信息 -->
+    <groupId>io.github.jameswang777.minimq</groupId>
+    <artifactId>minimq-parent</artifactId>
+    <version>1.1.0</version>
+    <!-- 2. 打包方式必须是 pom -->
+    <packaging>pom</packaging>
+
+    <name>MiniMQ Parent</name>
+    <description>The parent project for MiniMQ</description>
+
+    <!-- 3. 声明子模块 -->
+    <!-- Maven 会根据这里的列表去寻找子模块 -->
+    <modules>
+        <module>common</module>
+        <module>mq-broker-server</module>
+    </modules>
+
+    <!-- 4. 统一管理项目属性 -->
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <project.version>1.1.0</project.version>
+    </properties>
+
+    <!-- 5. (可选但推荐) 统一管理依赖版本 -->
+    <!-- 这里只声明版本，子模块需要时再引用，无需指定版本号 -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-classic</artifactId>
+                <version>1.5.19</version>
+            </dependency>
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>1.18.24</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+</project>
