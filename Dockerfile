@@ -9,29 +9,24 @@ WORKDIR /app
 # 这样做是为了让 Maven 能够解析父 POM 和模块间的依赖
 COPY . .
 
-# --- NEW AND IMPORTANT PART ---
-# Create the settings.xml file dynamically from environment variables.
-# This command creates the .m2 directory and then writes the XML content into settings.xml.
-# The shell will automatically substitute ${...} with the values of the environment variables.
+# 使用 echo 命令逐行创建 settings.xml
 RUN mkdir -p /root/.m2 && \
-    cat <<EOF > /root/.m2/settings.xml
-<settings>
-  <servers>
-    <server>
-      <id>internal-mirror</id>
-      <username>${MAVEN_REPO_USERNAME}</username>
-      <password>${MAVEN_REPO_PASSWORD}</password>
-    </server>
-  </servers>
-  <mirrors>
-    <mirror>
-      <id>internal-mirror</id>
-      <url>${MAVEN_MIRROR_URL}</url>
-      <mirrorOf>*</mirrorOf>
-    </mirror>
-  </mirrors>
-</settings>
-EOF
+    echo '<settings>' > /root/.m2/settings.xml && \
+    echo '  <servers>' >> /root/.m2/settings.xml && \
+    echo '    <server>' >> /root/.m2/settings.xml && \
+    echo '      <id>internal-mirror</id>' >> /root/.m2/settings.xml && \
+    echo "      <username>\${MAVEN_REPO_USERNAME}</username>" >> /root/.m2/settings.xml && \
+    echo "      <password>\${MAVEN_REPO_PASSWORD}</password>" >> /root/.m2/settings.xml && \
+    echo '    </server>' >> /root/.m2/settings.xml && \
+    echo '  </servers>' >> /root/.m2/settings.xml && \
+    echo '  <mirrors>' >> /root/.m2/settings.xml && \
+    echo '    <mirror>' >> /root/.m2/settings.xml && \
+    echo '      <id>internal-mirror</id>' >> /root/.m2/settings.xml && \
+    echo "      <url>\${MAVEN_MIRROR_URL}</url>" >> /root/.m2/settings.xml && \
+    echo '      <mirrorOf>*</mirrorOf>' >> /root/.m2/settings.xml && \
+    echo '    </mirror>' >> /root/.m2/settings.xml && \
+    echo '  </mirrors>' >> /root/.m2/settings.xml && \
+    echo '</settings>' >> /root/.m2/settings.xml
 
 # 运行 Maven 命令来构建 "uber-jar"
 # -pl mq-broker-server 指定只构建这个模块
