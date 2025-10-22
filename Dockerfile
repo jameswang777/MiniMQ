@@ -46,6 +46,10 @@ WORKDIR /app
 # 注意文件名要和你 pom.xml 中 assembly 插件生成的一致
 COPY --from=builder /app/mq-broker-server/target/mq-broker-server-1.1.0-jar-with-dependencies.jar ./app.jar
 
+# 创建一个 data 子目录，并赋予它 777 权限，让任何用户都可以读写执行
+# 这比修改 /app 目录本身更安全
+RUN mkdir ./data && chmod 777 ./data
+
 # 暴露 Broker Server 可能需要监听的端口
 EXPOSE 5677
 

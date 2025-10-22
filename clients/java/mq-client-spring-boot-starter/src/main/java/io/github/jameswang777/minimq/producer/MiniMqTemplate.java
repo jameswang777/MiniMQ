@@ -1,6 +1,5 @@
 package io.github.jameswang777.minimq.producer;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.jameswang777.minimq.config.MiniMqProperties;
 import io.github.jameswang777.minimq.connection.ConnectionManager;
@@ -76,14 +75,13 @@ public class MiniMqTemplate {
                 out.flush();
 
                 String response = in.readLine();
-                if (response != null && response.startsWith("OK:")) {
+                if (response != null) {
                     connectionManager.returnConnection(socket);
-                    String messageId = response.substring(3);
-                    log.debug("Successfully sent message to topic '{}', received messageId [{}].", message.getTopic(), messageId);
-                    return messageId;
+                    log.debug("Successfully sent message to topic '{}', received messageId [{}].", message.getTopic(), response);
+                    return response;
                 } else {
                     // 如果响应格式不正确，也视为一次失败
-                    throw new IllegalStateException("Received unexpected response from broker: " + response);
+                    throw new IllegalStateException("Received unexpected response from broker null response");
                 }
 
             } catch (Exception e) {

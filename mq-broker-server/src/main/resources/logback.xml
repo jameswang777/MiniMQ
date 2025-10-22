@@ -71,7 +71,10 @@
     <root level="INFO">
         <!-- 全局日志级别，可以设置为 TRACE, DEBUG, INFO, WARN, ERROR -->
         <appender-ref ref="CONSOLE"/>      <!-- 将日志输出到控制台 -->
-        <appender-ref ref="ASYNC_FILE"/>  <!-- 将日志异步输出到文件 -->
+        <!-- 将日志异步输出到文件 -->
+        <!--
+        <appender-ref ref="ASYNC_FILE"/>
+        -->
         <!-- 如果不想用异步，可以直接引用 FILE: <appender-ref ref="FILE"/> -->
     </root>
 

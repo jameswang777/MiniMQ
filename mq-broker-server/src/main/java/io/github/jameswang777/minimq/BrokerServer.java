@@ -21,7 +21,7 @@ public class BrokerServer {
     private static final int PLAIN_PORT = 5677; // 非加密端口
     private static final int TLS_PORT = 5678;   // 加密端口
 
-    private static final String LOG_FILE_PATH = "minimq-broker.log";
+    private static final String LOG_FILE_PATH = "data/minimq-broker.log";
     private static final long ACK_TIMEOUT_MS = 30000; // 30秒超时
 
     // In-memory message queues, keyed by topic
